@@ -16,6 +16,7 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 @bot.event
 async def on_ready():
     print("✅ Bot başarıyla başlatıldı!")
+    await bot.change_presence(activity=discord.Game(name="/go ile Pokémon al!"))
 
 @bot.command(name="topla")
 async def topla(ctx, sayi1: int, sayi2: int):
@@ -24,21 +25,24 @@ async def topla(ctx, sayi1: int, sayi2: int):
 
 @bot.command(name="go")
 async def go(ctx):
-    username = ctx.author.name
-
-    if username in Pokemon.pokemons:
-        await ctx.send("⚠️ Zaten bir Pokémon'unuz var. Yeni bir tane almak için önce `/release` yazın.")
+    user_id = ctx.author.id
+    if user_id in Pokemon.pokemons:
+        await ctx.send("⚠️ Zaten bir Pokémon'unuz var. Yeni almak için önce `/release` yazın.")
         return
 
-    pokemon = Pokemon(username)
-    await pokemon.get_name_and_types()
-    Pokemon.pokemons[username] = pokemon
+    pokemon = Pokemon(user_id)
+    await pokemon.fetch_data()
+    Pokemon.pokemons[user_id] = pokemon
 
-    await ctx.send(await pokemon.info())
+    msg = await pokemon.info()
+    if pokemon.is_rare:
+        msg = f"✨ **Tebrikler! Nadir Pokémon yakaladınız!** ✨\n" + msg
+
+    await ctx.send(msg)
 
     image_url = await pokemon.show_img()
     if image_url:
-        embed = discord.Embed(title=f"{username} için Pokémon")
+        embed = discord.Embed(title=f"{ctx.author.name} için Pokémon")
         embed.set_image(url=image_url)
         await ctx.send(embed=embed)
     else:
@@ -46,29 +50,49 @@ async def go(ctx):
 
 @bot.command(name="my")
 async def my_pokemon(ctx):
-    username = ctx.author.name
-
-    if username not in Pokemon.pokemons:
+    user_id = ctx.author.id
+    if user_id not in Pokemon.pokemons:
         await ctx.send("❌ Henüz bir Pokémon'unuz yok. Bir tane almak için `/go` yazın.")
         return
 
-    pokemon = Pokemon.pokemons[username]
+    pokemon = Pokemon.pokemons[user_id]
     await ctx.send(await pokemon.info())
-
     image_url = await pokemon.show_img()
     if image_url:
-        embed = discord.Embed(title=f"{username} için mevcut Pokémon")
+        embed = discord.Embed(title=f"{ctx.author.name} için mevcut Pokémon")
         embed.set_image(url=image_url)
         await ctx.send(embed=embed)
 
 @bot.command(name="release")
 async def release(ctx):
-    username = ctx.author.name
-
-    if username in Pokemon.pokemons:
-        released = Pokemon.pokemons.pop(username)
+    user_id = ctx.author.id
+    if user_id in Pokemon.pokemons:
+        released = Pokemon.pokemons.pop(user_id)
         await ctx.send(f"😢 {released.name} serbest bırakıldı. Yeni bir Pokémon almak için `/go` yaz.")
     else:
         await ctx.send("❌ Serbest bırakacak bir Pokémon'unuz yok!")
+
+@bot.command(name="feed")
+async def feed(ctx):
+    user_id = ctx.author.id
+    if user_id not in Pokemon.pokemons:
+        await ctx.send("❌ Henüz bir Pokémon'unuz yok. Bir tane almak için `/go` yazın.")
+        return
+
+    pokemon = Pokemon.pokemons[user_id]
+    leveled_up, xp, level_up_msgs = await pokemon.feed()
+    msg = f"{pokemon.name} beslendi ve {xp} XP kazandı."
+    if leveled_up:
+        msg += "\n" + "\n".join(level_up_msgs)
+    await ctx.send(msg)
+
+@bot.command(name="achievements")
+async def achievements(ctx):
+    user_id = ctx.author.id
+    achs = await Pokemon.get_achievements(user_id)
+    if not achs:
+        await ctx.send("Henüz hiçbir başarınız yok.")
+        return
+    await ctx.send("🎖️ Başarılarınız:\n" + "\n".join(f"- {a}" for a in achs))
 
 bot.run(TOKEN)
