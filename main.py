@@ -2,97 +2,59 @@ import os
 from dotenv import load_dotenv
 from logic import Pokemon
 
+
+
 load_dotenv(override=True)
+
+
 TOKEN = os.environ.get("DISCORD_TOKEN")
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
-intents = discord.Intents.all()
-intents.message_content = True
+imtiyazlar = discord.Intents.all()
+imtiyazlar.message_content = True
 
-bot = commands.Bot(command_prefix="/", intents=intents)
+piton = commands.Bot(command_prefix="/", intents= imtiyazlar)
 
-@bot.event
+@piton.event
 async def on_ready():
-    print("✅ Bot başarıyla başlatıldı!")
-    await bot.change_presence(activity=discord.Game(name="/go ile Pokémon al!"))
+    print("bot hazır")
 
-@bot.command(name="topla")
-async def topla(ctx, sayi1: int, sayi2: int):
-    toplam = sayi1 + sayi2
-    await ctx.send(f"Toplam: {toplam}")
 
-@bot.command(name="go")
+@piton.command("topla")
+async def topla(ctx, sayi1, sayi2):
+    toplam = int(sayi1) + int(sayi2)
+    await ctx.send(toplam)
+
+@piton.command("pokebilgi")
 async def go(ctx):
-    user_id = ctx.author.id
-    if user_id in Pokemon.pokemons:
-        await ctx.send("⚠️ Zaten bir Pokémon'unuz var. Yeni almak için önce `/release` yazın.")
-        return
-
-    pokemon = Pokemon(user_id)
-    await pokemon.fetch_data()
-    Pokemon.pokemons[user_id] = pokemon
-
-    msg = await pokemon.info()
-    if pokemon.is_rare:
-        msg = f"✨ **Tebrikler! Nadir Pokémon yakaladınız!** ✨\n" + msg
-
-    await ctx.send(msg)
-
-    image_url = await pokemon.show_img()
-    if image_url:
-        embed = discord.Embed(title=f"{ctx.author.name} için Pokémon")
-        embed.set_image(url=image_url)
-        await ctx.send(embed=embed)
+    author = ctx.author.name
+    if author in Pokemon.pokemons:
+        pokemon = Pokemon.pokemons[author]
+        await ctx.send(pokemon.info())
     else:
-        await ctx.send("❌ Pokémon resmi yüklenemedi!")
+        await ctx.send("Pokemonun yok")
 
-@bot.command(name="my")
-async def my_pokemon(ctx):
-    user_id = ctx.author.id
-    if user_id not in Pokemon.pokemons:
-        await ctx.send("❌ Henüz bir Pokémon'unuz yok. Bir tane almak için `/go` yazın.")
-        return
+@piton.command("go")
+async def go(ctx):    
+    user = ctx.author  
+    username = user.name  
+    
+    if username not in Pokemon.pokemons:
+        pokemon = Pokemon(username)
+        await ctx.send(await pokemon.info())
 
-    pokemon = Pokemon.pokemons[user_id]
-    await ctx.send(await pokemon.info())
-    image_url = await pokemon.show_img()
-    if image_url:
-        embed = discord.Embed(title=f"{ctx.author.name} için mevcut Pokémon")
-        embed.set_image(url=image_url)
-        await ctx.send(embed=embed)
-
-@bot.command(name="release")
-async def release(ctx):
-    user_id = ctx.author.id
-    if user_id in Pokemon.pokemons:
-        released = Pokemon.pokemons.pop(user_id)
-        await ctx.send(f"😢 {released.name} serbest bırakıldı. Yeni bir Pokémon almak için `/go` yaz.")
+        image_url = await pokemon.show_img()
+        if image_url:
+            embed = discord.Embed(title=f"{username}'in Pokémon'u")
+            embed.set_image(url=image_url)
+            await ctx.send(embed=embed)
+        else:
+            await ctx.send("Pokémonun görüntüsü yüklenemedi!")
     else:
-        await ctx.send("❌ Serbest bırakacak bir Pokémon'unuz yok!")
+        await ctx.send("Zaten kendi Pokémonunuzu oluşturdunuz!")
 
-@bot.command(name="feed")
-async def feed(ctx):
-    user_id = ctx.author.id
-    if user_id not in Pokemon.pokemons:
-        await ctx.send("❌ Henüz bir Pokémon'unuz yok. Bir tane almak için `/go` yazın.")
-        return
+piton.run(TOKEN)
 
-    pokemon = Pokemon.pokemons[user_id]
-    leveled_up, xp, level_up_msgs = await pokemon.feed()
-    msg = f"{pokemon.name} beslendi ve {xp} XP kazandı."
-    if leveled_up:
-        msg += "\n" + "\n".join(level_up_msgs)
-    await ctx.send(msg)
 
-@bot.command(name="achievements")
-async def achievements(ctx):
-    user_id = ctx.author.id
-    achs = await Pokemon.get_achievements(user_id)
-    if not achs:
-        await ctx.send("Henüz hiçbir başarınız yok.")
-        return
-    await ctx.send("🎖️ Başarılarınız:\n" + "\n".join(f"- {a}" for a in achs))
-
-bot.run(TOKEN)
