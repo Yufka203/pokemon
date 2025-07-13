@@ -14,6 +14,12 @@
 
 ---
 
+## 📷 Görseller
+
+<img width="2243" height="1649" alt="image" src="https://github.com/user-attachments/assets/50c8bb11-faa1-435f-b244-9485a8a0503e" />
+
+---
+
 ## ⚙️ Kurulum
 
 1. Python 3.8+ yüklü olduğundan emin olun  
